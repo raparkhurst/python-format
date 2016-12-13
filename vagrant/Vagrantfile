@@ -1,0 +1,89 @@
+# -*- mode: ruby -*-
+
+private_network_ip = '172.20.0.101'
+username = %w{USER USERNAME}.map{|x|u=(ENV[x]||'').gsub(/[^\w]/,''); u unless u.empty?}.compact.first
+if username.nil?
+  puts 'ERROR: Could not determine username from environment'
+  exit 1
+end
+
+
+#drives = 20
+#(0..drives).each do |d|
+#  File.open("./disks/disk-#{d}.vdi", "w") {}
+#end
+
+# This script can be replaced with the "config.omnibus" provisioning directive
+# (requires "vagrant plugin install vagrant-omnibus"), but that does not save 
+# a copy of the package locally for re-use.  I prefer this method slightly.
+$preSetupScript = <<PRESCRIPT
+    #yum -y install epel-release
+    #yum -y update
+    #yum -y install python-pip gcc g++ python-devel
+    #pip install --upgrade pip
+PRESCRIPT
+
+
+
+
+VAGRANT_API_VERSION = '2'
+Vagrant.configure(VAGRANT_API_VERSION) do |config|
+
+  config.vm.provider 'virtualbox' do |vb|
+    vb.customize ['modifyvm', :id, '--memory', '2048']
+  end
+
+
+  ##############################################################################
+  #
+  #
+  # ONLY EDIT THIS variable!!!!
+  #
+  #
+  # I had to add 1 to the variable list to make the drives map correctly.
+  # As a result, I fix the variables so you don't have to :-)
+  #
+  #
+  ##############################################################################
+  drive_count = 20
+
+  
+  drives = drive_count + 1
+
+  (1..drives).each do |d|
+    config.vm.provider 'virtualbox' do |vb|
+      unless File.exist?("./disks/disk-#{d}.vdi")
+        vb.customize ['createhd', '--filename', "./disks/disk-#{d}.vdi", '--size', 1000]
+      end
+      vb.customize ['storageattach', :id, '--storagectl', 'SATA Controller', '--port', d, '--device', 0, '--type', 'hdd', '--medium', "./disks/disk-#{d}.vdi"]
+    end
+  end
+
+  config.vm.hostname = "siteschematic-#{username}"
+  config.vm.network :private_network, ip: private_network_ip
+
+
+  ##############################################################################
+  #
+  #  Choose your box  (by default, I have CentOS 7.2 listed
+  #
+  ##############################################################################
+  
+  # CentOS 7.2 box
+  config.vm.box = 'bento/centos-7.2'
+
+  # Ubuntu 14.04 box
+  #config.vm.box = 'opscode_ubuntu-14.04_chef-provisionerless.box'
+
+  # Ubuntu 16.04 box
+  #config.vm.box = 'opscode_ubuntu-16.04_chef-provisionerless.box'
+
+
+
+  
+  config.vm.synced_folder "~/projects/digitalsynapse/python-format/", "/vagrant"
+
+  config.vm.provision :shell, :inline => $preSetupScript
+  
+end
+

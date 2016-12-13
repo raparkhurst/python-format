@@ -1,0 +1,5 @@
+.idea
+.idea/*
+vagrant/disks/*
+vagrant/.vagrant
+vagrant/.vagrant/*

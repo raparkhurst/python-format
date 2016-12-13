@@ -42,19 +42,31 @@ def check_fstab(device_id):
             return True
     return False
 def format_drive(linux_device_file, linux_partition_file):
+    mkfs_options = " "
+
+    print linux_partition_file
+
+
     if options.format_disks is True:
+
+        if options.mkfs_fs == "xfs":
+            if options.verbosity > 0:
+                print "setting force options for xfs formatting"
+            mkfs_options = " -f"
+
+
         if not os.path.exists(linux_partition_file):
             if options.verbosity > 0:
                 print "[ " + linux_device_file + " ] Creating parition on " + linux_device_file
 
             # Attempted to use this, but didn't work..Keeping here for possible future use.
             # subprocess.check_call(['parted', disk_file, '--script -- mklabel gpt mkpart primary 0% 100%'])
-            os.system("parted " + linux_device_file + " --script -- mklabel gpt mkpart primary xfs 0% 100%")
+            os.system("parted " + linux_device_file + " --script -- mklabel gpt mkpart primary 0% 100%")
 
-        if (os.system("file -sL " + linux_device_file + "* | grep XFS 1>/dev/null")) is not 0:
+        if (os.system("file -sL " + linux_device_file + "* | grep -i " + options.mkfs_fs + " 1>/dev/null")) is not 0:
             if options.verbosity > 0:
-                print "[ " + linux_device_file + " ] Disk has not been formatted...formatting xfs"
-            os.system("mkfs.xfs " + linux_device_file + "1" + " -f")
+                print "[ " + linux_device_file + " ] Disk has not been formatted...formatting " + options.mkfs_fs
+            os.system("mkfs." + options.mkfs_fs + " " + linux_partition_file + " " + mkfs_options)
 
             if options.verbosity > 0:
                 print "[ " + linux_device_file + " ] done"
@@ -158,7 +170,7 @@ if __name__ == '__main__':
                     if options.verbosity > 0:
                         print "did not find " + linux_device_file + "1" + " in /etc/fstab; updating!"
                     with open("/etc/fstab", "a") as myfile:
-                        myfile.write(linux_device_file + "1\t/data/" + disk_counter(disk_letter) + "\txfs\tdefaults,noatime,nodiratime\t0\t0\n")
+                        myfile.write(linux_device_file + "1\t/data/" + disk_counter(disk_letter) + "\tauto\tdefaults,noatime,nodiratime\t0\t0\n")
 
                 # Done.
     else:

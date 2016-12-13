@@ -42,21 +42,24 @@ def check_fstab(device_id):
             return True
     return False
 def format_drive(linux_device_file, linux_partition_file):
-    if not os.path.exists(linux_partition_file):
-        if options.verbosity > 0:
-            print "Creating parition on " + linux_device_file
+    if options.format_disks is True:
+        if not os.path.exists(linux_partition_file):
+            if options.verbosity > 0:
+                print "[ " + linux_device_file + " ] Creating parition on " + linux_device_file
 
-        # Attempted to use this, but didn't work..Keeping here for possible future use.
-        # subprocess.check_call(['parted', disk_file, '--script -- mklabel gpt mkpart primary 0% 100%'])
-        os.system("parted " + linux_device_file + " --script -- mklabel gpt mkpart primary xfs 0% 100%")
+            # Attempted to use this, but didn't work..Keeping here for possible future use.
+            # subprocess.check_call(['parted', disk_file, '--script -- mklabel gpt mkpart primary 0% 100%'])
+            os.system("parted " + linux_device_file + " --script -- mklabel gpt mkpart primary xfs 0% 100%")
 
-    if (os.system("file -sL " + linux_device_file + "* | grep XFS 1>/dev/null")) is not 0:
-        if options.verbosity > 0:
-            print "Disk has not been formatted...formatting xfs"
-        os.system("mkfs.xfs " + linux_device_file + "1" + " -f")
+        if (os.system("file -sL " + linux_device_file + "* | grep XFS 1>/dev/null")) is not 0:
+            if options.verbosity > 0:
+                print "[ " + linux_device_file + " ] Disk has not been formatted...formatting xfs"
+            os.system("mkfs.xfs " + linux_device_file + "1" + " -f")
 
-        if options.verbosity > 0:
-            print "done"
+            if options.verbosity > 0:
+                print "[ " + linux_device_file + " ] done"
+    else:
+        print "[ " + linux_device_file + " ] did not set option to format disks.  NO PARTITIONING or FORMATTING occured!"
 def check_mount_point(mount_point):
     if os.path.exists(mount_point):
         if options.verbosity > 0:
@@ -80,16 +83,30 @@ parser = optparse.OptionParser()
 parser.add_option('-a',
                   help="Runs in automatic mode (default)",
                   action="store_true",
-                  default=True,
+                  default=False,
                   dest="auto_run")
-#parser.add_option('-s',
-#                  help="Starting disk letter.  Default is 'b'",
-#                  default='b',
-#                  dest="start_disk")
-#parser.add_option('-e',
-#                  help="Specify ending disk letter.  Default is 'z'",
-#                  default='z',
-#                  dest="end_disk")
+parser.add_option('-s',
+                  help="Starting disk letter.  Default is 'b'",
+                  default='b',
+                  dest="start_disk")
+parser.add_option('-e',
+                  help="Specify ending disk letter.  Default is 'z'",
+                  default='z',
+                  dest="end_disk")
+parser.add_option('-f',
+                  help="specify filesystem.  Default is xfs.  Valid values are:  xfs, ext3, ext4",
+                  default='xfs',
+                  dest="mkfs_fs")
+parser.add_option('-F',
+                  help="Format drives.  If set will format drives if not (or wrongly) formatted.  By default this is FALSE",
+                  default=False,
+                  action="store_true",
+                  dest="format_disks")
+parser.add_option('-r',
+                  help="Run program.  This will loop through and do everything except formatting, see above.",
+                  default=False,
+                  action="store_true",
+                  dest="run_program")
 parser.add_option('-v',
                   action="count",
                   default=0,
@@ -112,33 +129,37 @@ if __name__ == '__main__':
     if options.auto_run is True:
         options.start_disk = 'b'
         options.end_disk = 'z'
+        options.mkfs_fs = "xfs"
+        options.run_program = True
+
+    if options.run_program is True:
+        for disk_letter in char_range(options.start_disk, options.end_disk):
+            linux_device_file = "/dev/sd" + disk_letter
+            linux_partition_file = linux_device_file + "1"
 
 
-    for disk_letter in char_range(options.start_disk, options.end_disk):
-        linux_device_file = "/dev/sd" + disk_letter
-        linux_partition_file = linux_device_file + "1"
-
-
-        # Checking if disk exists
-        if os.path.exists(linux_device_file):
-            if options.verbosity > 0:
-                print linux_device_file + " is a valid disk"
-
-
-            # Check if partitioned and formatted
-            format_drive(linux_device_file,linux_partition_file)
-
-            # Check if mount point created
-            check_mount_point("/data/" + disk_counter(disk_letter))
-
-            # Check if in /etc/fstab
-            if check_fstab(linux_partition_file):
+            # Checking if disk exists
+            if os.path.exists(linux_device_file):
                 if options.verbosity > 0:
-                    print "found " + linux_device_file + " in /etc/fstab, no need to update!"
-            else:
-                if options.verbosity > 0:
-                    print "did not find " + linux_device_file + "1" + " in /etc/fstab; updating!"
-                with open("/etc/fstab", "a") as myfile:
-                    myfile.write(linux_device_file + "1\t/data/" + disk_counter(disk_letter) + "\txfs\tdefaults,noatime,nodiratime\t0\t0\n")
+                    print linux_device_file + " is a valid disk"
 
-            # Done.
+
+                # Check if partitioned and formatted
+                format_drive(linux_device_file,linux_partition_file)
+
+                # Check if mount point created
+                check_mount_point("/data/" + disk_counter(disk_letter))
+
+                # Check if in /etc/fstab
+                if check_fstab(linux_partition_file):
+                    if options.verbosity > 0:
+                        print "found " + linux_device_file + " in /etc/fstab, no need to update!"
+                else:
+                    if options.verbosity > 0:
+                        print "did not find " + linux_device_file + "1" + " in /etc/fstab; updating!"
+                    with open("/etc/fstab", "a") as myfile:
+                        myfile.write(linux_device_file + "1\t/data/" + disk_counter(disk_letter) + "\txfs\tdefaults,noatime,nodiratime\t0\t0\n")
+
+                # Done.
+    else:
+        print "Error:  Run was not specified.  Please see help (--help)"

@@ -81,7 +81,7 @@ Vagrant.configure(VAGRANT_API_VERSION) do |config|
 
 
   
-  config.vm.synced_folder "~/projects/digitalsynapse/python-format/", "/vagrant"
+  config.vm.synced_folder "../", "/vagrant"
 
   config.vm.provision :shell, :inline => $preSetupScript
   

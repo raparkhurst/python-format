@@ -34,6 +34,7 @@ def disk_counter(disk_letter):
 def check_fstab(device_id):
     """Check /etc/fstab for string entry"""
 
+
     # Found code snippet online (closed browser before I got URL)...if I find, will update this!
     fstab_file = file('/etc/fstab')
     found = False
@@ -80,7 +81,8 @@ def check_mount_point(mount_point):
         if options.verbosity > 0:
             print mount_point + " does not exist"
         os.system("mkdir -p " + mount_point)
-
+def mount_volumes():
+    os.system("mount -a")
 
 
 
@@ -127,6 +129,11 @@ parser.add_option('-t',
                   action="store_true",
                   default=False,
                   dest="test_mode")
+parser.add_option('-m',
+                  action="store_true",
+                  default=False,
+                  dest="mount_volumes")
+
 
 options, remainder = parser.parse_args()
 
@@ -143,6 +150,7 @@ if __name__ == '__main__':
         options.end_disk = 'z'
         options.mkfs_fs = "xfs"
         options.run_program = True
+        options.mount_volumes = True
 
     if options.run_program is True:
         for disk_letter in char_range(options.start_disk, options.end_disk):
@@ -171,6 +179,11 @@ if __name__ == '__main__':
                         print "did not find " + linux_device_file + "1" + " in /etc/fstab; updating!"
                     with open("/etc/fstab", "a") as myfile:
                         myfile.write(linux_device_file + "1\t/data/" + disk_counter(disk_letter) + "\tauto\tdefaults,noatime,nodiratime\t0\t0\n")
+
+        if options.mount_volumes is True:
+            if options.verbosity > 0:
+                print "auto-mounting volumes..."
+            mount_volumes()
 
                 # Done.
     else:
